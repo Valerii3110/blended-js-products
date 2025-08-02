@@ -1,182 +1,140 @@
+import { refs } from './refs.js';
 import {
   fetchProducts,
-  fetchProductById,
   fetchProductsByCategory,
   searchProducts,
-  fetchCategories,
+  fetchProductById,
 } from './products-api.js';
-import {
-  renderProducts,
-  renderCategories,
-  renderModalProduct,
-  showLoader,
-  hideLoader,
-  showToast,
-} from './render-functions.js';
-import { openModal, closeModal, updateModalButtons } from './modal.js';
-import { addToStorage, removeFromStorage, updateNavCounts } from './storage.js';
+import { renderProducts, appendProducts } from './render-functions.js';
+import { openModal } from './modal.js';
+import { debounce } from './helpers.js';
+import { getFromStorage } from './storage.js';
+import { STORAGE_KEYS, SELECTORS } from './constants.js';
 
 let currentPage = 1;
 let currentCategory = 'All';
 let currentSearchQuery = '';
-const productsPerPage = 12;
+let isLoading = false;
 
-export async function handleCategoryClick(e) {
+export const updateCartCount = () => {
+  const cart = getFromStorage(STORAGE_KEYS.CART);
+  const cartCountElement = document.querySelector(SELECTORS.CART_COUNT);
+
+  if (cartCountElement) {
+    cartCountElement.textContent = cart.length;
+    // Додаємо клас для анімації при зміні
+    cartCountElement.classList.add('nav__count--updated');
+    setTimeout(() => {
+      cartCountElement.classList.remove('nav__count--updated');
+    }, 300);
+  }
+};
+
+export const updateWishlistCount = () => {
+  const wishlist = getFromStorage(STORAGE_KEYS.WISHLIST);
+  const wishlistCountElement = document.querySelector(SELECTORS.WISHLIST_COUNT);
+
+  if (wishlistCountElement) {
+    wishlistCountElement.textContent = wishlist.length;
+    // Додаємо клас для анімації при зміні
+    wishlistCountElement.classList.add('nav__count--updated');
+    setTimeout(() => {
+      wishlistCountElement.classList.remove('nav__count--updated');
+    }, 300);
+  }
+};
+
+export const handleCategoryClick = async e => {
   if (!e.target.classList.contains('categories__btn')) return;
 
-  const category = e.target.textContent;
-  if (category === currentCategory) return;
-
-  currentCategory = category;
+  currentCategory = e.target.dataset.category;
   currentPage = 1;
   currentSearchQuery = '';
+  refs.searchInput.value = '';
 
   document.querySelectorAll('.categories__btn').forEach(btn => {
     btn.classList.remove('categories__btn--active');
   });
   e.target.classList.add('categories__btn--active');
 
-  document.querySelector('.search-form__input').value = '';
+  const { products } = await fetchProductsByCategory(
+    currentCategory,
+    currentPage
+  );
+  renderProducts(products);
+  refs.loadMoreBtn.style.display =
+    products.length >= PAGINATION.LIMIT ? 'block' : 'none';
+};
 
-  showLoader();
-  try {
-    let products;
-    if (category === 'All') {
-      products = await fetchProducts(productsPerPage, 0);
-    } else {
-      products = await fetchProductsByCategory(category, productsPerPage, 0);
-    }
-    renderProducts(products.products);
-    document.querySelector('.load-more').style.display =
-      products.products.length === productsPerPage ? 'block' : 'none';
-  } catch (error) {
-    console.log(error);
-  } finally {
-    hideLoader();
-  }
-}
-
-export async function handleProductClick(e) {
+export const handleProductClick = async e => {
   const productItem = e.target.closest('.products__item');
   if (!productItem) return;
 
   const productId = productItem.dataset.id;
+  const product = await fetchProductById(productId);
+  if (product) openModal(product);
+};
 
-  showLoader();
-  try {
-    const product = await fetchProductById(productId);
-    renderModalProduct(product);
-    updateModalButtons(productId);
-    openModal();
-  } catch (error) {
-    showToast('Failed to load product details', 'error');
-  } finally {
-    hideLoader();
+export const handleLoadMore = async () => {
+  if (isLoading) return;
+  isLoading = true;
+
+  currentPage += 1;
+  let products = [];
+
+  if (currentSearchQuery) {
+    const data = await searchProducts(currentSearchQuery, currentPage);
+    products = data.products;
+  } else {
+    const data = await fetchProductsByCategory(currentCategory, currentPage);
+    products = data.products;
   }
-}
 
-export async function handleSearchSubmit(e) {
+  if (products.length > 0) {
+    appendProducts(products);
+  } else {
+    refs.loadMoreBtn.style.display = 'none';
+  }
+
+  isLoading = false;
+};
+
+export const handleSearch = debounce(async e => {
   e.preventDefault();
-  const query = e.target.querySelector('input').value.trim();
+  const query = refs.searchInput.value.trim();
   if (!query) return;
 
   currentSearchQuery = query;
   currentPage = 1;
-  currentCategory = 'All';
 
-  document.querySelectorAll('.categories__btn').forEach(btn => {
-    btn.classList.remove('categories__btn--active');
-  });
+  const { products } = await searchProducts(query, currentPage);
+  renderProducts(products);
+  refs.loadMoreBtn.style.display =
+    products.length >= PAGINATION.LIMIT ? 'block' : 'none';
+}, 500);
 
-  showLoader();
-  try {
-    const products = await searchProducts(query, productsPerPage, 0);
-    renderProducts(products.products);
-    document.querySelector('.load-more-btn').style.display =
-      products.products.length === productsPerPage ? 'block' : 'none';
-  } catch (error) {
-    showToast('Failed to search products', 'error');
-  } finally {
-    hideLoader();
-  }
-}
-
-export function handleClearSearch() {
-  const searchInput = document.querySelector('.search-form__input');
-  searchInput.value = '';
+export const handleSearchClear = () => {
+  refs.searchInput.value = '';
   currentSearchQuery = '';
+  currentPage = 1;
 
-  if (currentCategory === 'All') {
-    loadInitialProducts();
-  }
-}
+  fetchProducts(currentPage).then(({ products }) => {
+    renderProducts(products);
+    refs.loadMoreBtn.style.display =
+      products.length >= PAGINATION.LIMIT ? 'block' : 'none';
+  });
+};
 
-export async function handleLoadMore() {
-  currentPage++;
+export const handleScrollUp = () => {
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth',
+  });
+};
 
-  showLoader();
-  try {
-    let products;
-    if (currentSearchQuery) {
-      products = await searchProducts(
-        currentSearchQuery,
-        productsPerPage,
-        (currentPage - 1) * productsPerPage
-      );
-    } else if (currentCategory === 'All') {
-      products = await fetchProducts(
-        productsPerPage,
-        (currentPage - 1) * productsPerPage
-      );
-    } else {
-      products = await fetchProductsByCategory(
-        currentCategory,
-        productsPerPage,
-        (currentPage - 1) * productsPerPage
-      );
-    }
-
-    const productsList = document.querySelector('.products');
-    const newProducts = products.products
-      .map(
-        product => `
-      <li class="products__item" data-id="${product.id}">
-        <img class="products__image" src="${product.thumbnail}" alt="${product.title}"/>
-        <p class="products__title">${product.title}</p>
-        <p class="products__brand"><span class="products__brand--bold">Brand:</span> ${product.brand}</p>
-        <p class="products__category">Category: ${product.category}</p>
-        <p class="products__price">Price: $${product.price}</p>
-      </li>
-    `
-      )
-      .join('');
-
-    productsList.insertAdjacentHTML('beforeend', newProducts);
-    document.querySelector('.load-more').style.display =
-      products.products.length === productsPerPage ? 'block' : 'none';
-  } catch (error) {
-    showToast('Failed to load more products', 'error');
-  } finally {
-    hideLoader();
-  }
-}
-
-export async function loadInitialProducts() {
-  showLoader();
-  try {
-    const [categories, products] = await Promise.all([
-      fetchCategories(),
-      fetchProducts(productsPerPage, 0),
-    ]);
-
-    renderCategories(categories);
-    renderProducts(products.products);
-    document.querySelector('.load-more-btn').style.display =
-      products.products.length === productsPerPage ? 'block' : 'none';
-    updateNavCounts();
-  } catch (error) {
-    showToast('Failed to load initial data', 'error');
-  } finally {
-    hideLoader();
-  }
-}
+export const handleThemeToggle = () => {
+  const currentTheme = localStorage.getItem('theme') || 'light';
+  const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', newTheme);
+  localStorage.setItem('theme', newTheme);
+};

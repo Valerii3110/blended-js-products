@@ -14,3 +14,13 @@
 @import url('./not-found.css');
 @import url('./helpers.css');
 @import url('./loader.css');
+
+/* Анімація для лічильників */
+.nav__count {
+  transition: transform 0.3s ease;
+}
+
+.nav__count--updated {
+  transform: scale(1.2);
+  color: #ff6b0a;
+}

@@ -1,32 +1,37 @@
-export function setupScrollUpButton() {
-  const scrollUpBtn = document.querySelector('.scroll-up');
+import iziToast from 'izitoast';
+import 'izitoast/dist/css/iziToast.min.css';
 
-  window.addEventListener('scroll', () => {
-    if (window.pageYOffset > 300) {
-      scrollUpBtn.classList.add('scroll-up--visible');
-    } else {
-      scrollUpBtn.classList.remove('scroll-up--visible');
-    }
+export const showLoader = () => {
+  const loader = document.createElement('div');
+  loader.className = 'loader';
+  document.body.appendChild(loader);
+};
+
+export const hideLoader = () => {
+  const loader = document.querySelector('.loader');
+  if (loader) loader.remove();
+};
+
+export const showError = message => {
+  iziToast.error({
+    title: 'Error',
+    message: message,
+    position: 'topRight',
   });
+};
 
-  scrollUpBtn.addEventListener('click', () => {
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth',
-    });
+export const showSuccess = message => {
+  iziToast.success({
+    title: 'Success',
+    message: message,
+    position: 'topRight',
   });
-}
+};
 
-export function setupThemeToggle() {
-  const themeToggle = document.querySelector('.theme-toggle');
-  const currentTheme = localStorage.getItem('theme') || 'light';
-
-  document.body.classList.toggle('dark-theme', currentTheme === 'dark');
-  themeToggle.checked = currentTheme === 'dark';
-
-  themeToggle.addEventListener('change', () => {
-    const newTheme = themeToggle.checked ? 'dark' : 'light';
-    document.body.classList.toggle('dark-theme', newTheme === 'dark');
-    localStorage.setItem('theme', newTheme);
-  });
-}
+export const debounce = (func, delay) => {
+  let timeoutId;
+  return (...args) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => func.apply(this, args), delay);
+  };
+};

@@ -1,55 +1,32 @@
+import { refs } from './js/refs.js';
 import { fetchProductById } from './js/products-api.js';
-import {
-  renderProducts,
-  showLoader,
-  hideLoader,
-  showToast,
-  renderModalProduct,
-} from './js/render-functions.js';
-import { openModal, closeModal, updateModalButtons } from './js/modal.js';
-import {
-  getFromStorage,
-  removeFromStorage,
-  updateNavCounts,
-} from './js/storage.js';
+import { renderProducts } from './js/render-functions.js';
+import { openModal } from './js/modal.js';
+import { getFromStorage, removeFromWishlist } from './js/storage.js';
+import { updateWishlistCount, handleProductClick } from './js/handlers.js';
+import { showSuccess } from './js/helpers.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
-  showLoader();
-  try {
-    const wishlistIds = getFromStorage('wishlist');
-    if (wishlistIds.length === 0) {
-      document.querySelector('.not-found').classList.add('not-found--visible');
-      return;
-    }
+  const wishlistIds = getFromStorage(STORAGE_KEYS.WISHLIST);
+  const wishlistCountElement = document.querySelector(SELECTORS.WISHLIST_COUNT);
 
+  // Оновлюємо лічильник у header
+  if (wishlistCountElement) {
+    wishlistCountElement.textContent = wishlistIds.length;
+  }
+
+  if (wishlistIds.length === 0) {
+    document.querySelector('.not-found').classList.add('not-found--visible');
+    return;
+  }
+
+  try {
     const products = await Promise.all(
       wishlistIds.map(id => fetchProductById(id))
     );
 
-    renderProducts(products);
+    renderProducts(products.filter(Boolean));
   } catch (error) {
-    showToast('Failed to load wishlist', 'error');
-  } finally {
-    hideLoader();
+    document.querySelector('.not-found').classList.add('not-found--visible');
   }
-
-  // Event listeners
-  document.querySelector('.products').addEventListener('click', async e => {
-    const productItem = e.target.closest('.products__item');
-    if (!productItem) return;
-
-    const productId = productItem.dataset.id;
-
-    showLoader();
-    try {
-      const product = await fetchProductById(productId);
-      renderModalProduct(product);
-      updateModalButtons(productId);
-      openModal();
-    } catch (error) {
-      showToast('Failed to load product details', 'error');
-    } finally {
-      hideLoader();
-    }
-  });
 });

@@ -1,87 +1,64 @@
+import { refs } from './refs.js';
+import { renderModalProduct } from './render-functions.js';
 import {
-  getFromStorage,
-  addToStorage,
-  removeFromStorage,
-  updateNavCounts,
-} from './storage.js';
+  addToCart,
+  removeFromCart,
+  addToWishlist,
+  removeFromWishlist,
+} from './storage';
+import { showSuccess } from './helpers.js';
 
-export function openModal() {
-  const modal = document.querySelector('.modal');
-  modal.classList.add('modal--is-open');
+const handleEscape = e => {
+  if (e.code === 'Escape') closeModal();
+};
+
+const handleBackdropClick = e => {
+  if (e.target === refs.modal) closeModal();
+};
+
+export const openModal = product => {
+  renderModalProduct(product);
+  refs.modal.classList.add('modal--is-open');
   document.body.style.overflow = 'hidden';
-  document.addEventListener('keydown', handleKeyDown);
-}
 
-export function closeModal() {
-  const modal = document.querySelector('.modal');
-  modal.classList.remove('modal--is-open');
-  document.body.style.overflow = '';
-  document.removeEventListener('keydown', handleKeyDown);
-}
+  document.addEventListener('keydown', handleEscape);
+  refs.modal.addEventListener('click', handleBackdropClick);
 
-function handleKeyDown(e) {
-  if (e.key === 'Escape') {
-    closeModal();
-  }
-}
-
-export function setupModalListeners() {
-  const modal = document.querySelector('.modal');
-
-  modal.addEventListener('click', e => {
-    if (e.target === modal || e.target.closest('.modal__close-btn')) {
-      closeModal();
-    }
-  });
-}
-
-export function updateModalButtons(productId) {
-  const wishlistBtn = document.querySelector('.modal-product__btn--wishlist');
-  const cartBtn = document.querySelector('.modal-product__btn--cart');
-
-  const wishlist = getFromStorage('wishlist');
-  const cart = getFromStorage('cart');
-
-  if (wishlist.includes(productId)) {
-    wishlistBtn.textContent = 'Remove from Wishlist';
-    wishlistBtn.classList.add('modal-product__btn--active');
-  } else {
-    wishlistBtn.textContent = 'Add to Wishlist';
-    wishlistBtn.classList.remove('modal-product__btn--active');
-  }
-
-  if (cart.includes(productId)) {
-    cartBtn.textContent = 'Remove from Cart';
-    cartBtn.classList.add('modal-product__btn--active');
-  } else {
-    cartBtn.textContent = 'Add to Cart';
-    cartBtn.classList.remove('modal-product__btn--active');
-  }
+  // Додаємо обробники для кнопок у модальному вікні
+  const wishlistBtn = refs.modal.querySelector('.modal-product__wishlist-btn');
+  const cartBtn = refs.modal.querySelector('.modal-product__cart-btn');
 
   wishlistBtn.addEventListener('click', () => {
-    console.log(wishlist);
-    if (wishlist.includes(productId)) {
-      removeFromStorage('wishlist', productId);
+    const productId = wishlistBtn.dataset.id;
+    if (wishlistBtn.textContent.includes('Remove')) {
+      removeFromWishlist(productId);
       wishlistBtn.textContent = 'Add to Wishlist';
-      wishlistBtn.classList.remove('modal-product__btn--active');
+      showSuccess('Removed from wishlist');
     } else {
-      addToStorage('wishlist', productId);
+      addToWishlist(productId);
       wishlistBtn.textContent = 'Remove from Wishlist';
-      wishlistBtn.classList.add('modal-product__btn--active');
+      showSuccess('Added to wishlist');
     }
-    updateNavCounts();
   });
 
   cartBtn.addEventListener('click', () => {
-    if (cart.includes(productId)) {
-      removeFromStorage('cart', productId);
+    const productId = cartBtn.dataset.id;
+    if (cartBtn.textContent.includes('Remove')) {
+      removeFromCart(productId);
       cartBtn.textContent = 'Add to Cart';
-      cartBtn.classList.remove('modal-product__btn--active');
+      showSuccess('Removed from cart');
     } else {
-      addToStorage('cart', productId);
+      addToCart(productId);
       cartBtn.textContent = 'Remove from Cart';
-      cartBtn.classList.add('modal-product__btn--active');
+      showSuccess('Added to cart');
     }
-    updateNavCounts();
   });
-}
+};
+
+export const closeModal = () => {
+  refs.modal.classList.remove('modal--is-open');
+  document.body.style.overflow = '';
+
+  document.removeEventListener('keydown', handleEscape);
+  refs.modal.removeEventListener('click', handleBackdropClick);
+};
