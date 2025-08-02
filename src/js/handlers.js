@@ -47,23 +47,19 @@ export const updateWishlistCount = () => {
 export const handleCategoryClick = async e => {
   if (!e.target.classList.contains('categories__btn')) return;
 
-  currentCategory = e.target.dataset.category;
+  const category = e.target.dataset.category;
+  currentCategory = category;
   currentPage = 1;
-  currentSearchQuery = '';
-  refs.searchInput.value = '';
 
+  // Оновлення активної категорії
   document.querySelectorAll('.categories__btn').forEach(btn => {
     btn.classList.remove('categories__btn--active');
   });
   e.target.classList.add('categories__btn--active');
 
-  const { products } = await fetchProductsByCategory(
-    currentCategory,
-    currentPage
-  );
+  // Завантаження продуктів
+  const { products } = await fetchProductsByCategory(category, currentPage);
   renderProducts(products);
-  refs.loadMoreBtn.style.display =
-    products.length >= PAGINATION.LIMIT ? 'block' : 'none';
 };
 
 export const handleProductClick = async e => {
