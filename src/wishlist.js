@@ -1,32 +1,68 @@
 import { refs } from './js/refs.js';
 import { fetchProductById } from './js/products-api.js';
-import { renderProducts } from './js/render-functions.js';
+import { initPageTheme, renderProducts } from './js/render-functions.js';
+import { getWishlist } from './js/storage.js';
+import { showLoader, hideLoader, updateWishlistCount } from './js/helpers.js';
 import { openModal } from './js/modal.js';
-import { getFromStorage, removeFromWishlist } from './js/storage.js';
-import { updateWishlistCount, handleProductClick } from './js/handlers.js';
-import { showSuccess } from './js/helpers.js';
 
-document.addEventListener('DOMContentLoaded', async () => {
-  const wishlistIds = getFromStorage(STORAGE_KEYS.WISHLIST);
-  const wishlistCountElement = document.querySelector(SELECTORS.WISHLIST_COUNT);
+document.addEventListener('DOMContentLoaded', initWishlistPage);
 
-  // Оновлюємо лічильник у header
-  if (wishlistCountElement) {
-    wishlistCountElement.textContent = wishlistIds.length;
-  }
-
-  if (wishlistIds.length === 0) {
-    document.querySelector('.not-found').classList.add('not-found--visible');
-    return;
-  }
-
+async function initWishlistPage() {
   try {
-    const products = await Promise.all(
-      wishlistIds.map(id => fetchProductById(id))
-    );
+    initPageTheme();
+    showLoader();
 
-    renderProducts(products.filter(Boolean));
+    const wishlist = getWishlist();
+    updateWishlistCount();
+
+    if (wishlist.length === 0) {
+      showEmptyWishlist();
+      return;
+    }
+
+    const products = await Promise.all(
+      wishlist.map(id => fetchProductById(id))
+    );
+    renderWishlistProducts(products);
+    setupWishlistPageEventListeners();
   } catch (error) {
-    document.querySelector('.not-found').classList.add('not-found--visible');
+    console.error('Error initializing wishlist page:', error);
+    showErrorToast('Не вдалося завантажити список бажань');
+  } finally {
+    hideLoader();
   }
-});
+}
+
+function renderWishlistProducts(products) {
+  refs.wishlistProducts.innerHTML = renderProducts(products);
+}
+
+function showEmptyWishlist() {
+  refs.notFound.classList.add('not-found--visible');
+}
+
+function setupWishlistPageEventListeners() {
+  // Відкриття модального вікна
+  refs.wishlistProducts.addEventListener('click', e => {
+    const productItem = e.target.closest('.products__item');
+    if (productItem) {
+      const productId = productItem.dataset.id;
+      openModal(productId);
+    }
+  });
+}
+
+// Оновлення списку при змінах
+export function updateWishlistDisplay() {
+  const wishlist = getWishlist();
+
+  if (wishlist.length === 0) {
+    showEmptyWishlist();
+    refs.wishlistProducts.innerHTML = '';
+  } else {
+    refs.notFound.classList.remove('not-found--visible');
+    // Можна додати перезавантаження списку
+  }
+
+  updateWishlistCount();
+}

@@ -1,48 +1,76 @@
 import { refs } from './js/refs.js';
 import { fetchProductById } from './js/products-api.js';
-import { renderProducts } from './js/render-functions.js';
+import { initPageTheme, renderProducts } from './js/render-functions.js';
+import { getCart, setCart } from './js/storage.js';
+import {
+  showLoader,
+  hideLoader,
+  showSuccessToast,
+  updateCartCount,
+} from './js/helpers.js';
 import { openModal } from './js/modal.js';
-import { getFromStorage, removeFromCart } from './js/storage.js';
-import { updateCartCount, handleProductClick } from './js/handlers.js';
-import { showSuccess } from './js/helpers.js';
 
-document.addEventListener('DOMContentLoaded', async () => {
-  const cartIds = getFromStorage(STORAGE_KEYS.CART);
-  const cartCountElement = document.querySelector(SELECTORS.CART_COUNT);
-  const summaryCountElement = document.querySelector('.cart-summary__items');
-  const summaryPriceElement = document.querySelector('.cart-summary__total');
+document.addEventListener('DOMContentLoaded', initCartPage);
 
-  // Оновлюємо лічильник у header
-  if (cartCountElement) {
-    cartCountElement.textContent = cartIds.length;
-  }
-
-  if (cartIds.length === 0) {
-    document.querySelector('.not-found').classList.add('not-found--visible');
-    document.querySelector('.cart-summary').style.display = 'none';
-    return;
-  }
-
+async function initCartPage() {
   try {
-    const products = await Promise.all(cartIds.map(id => fetchProductById(id)));
+    showLoader();
+    initPageTheme();
+    const cart = getCart();
+    updateCartSummary(cart);
 
-    const validProducts = products.filter(Boolean);
-    renderProducts(validProducts);
-
-    // Оновлюємо підсумок
-    if (summaryCountElement) {
-      summaryCountElement.textContent = validProducts.length;
+    if (cart.length === 0) {
+      showEmptyCart();
+      return;
     }
 
-    if (summaryPriceElement) {
-      const totalPrice = validProducts.reduce(
-        (sum, product) => sum + product.price,
-        0
-      );
-      summaryPriceElement.textContent = `$${totalPrice.toFixed(2)}`;
-    }
+    const products = await Promise.all(cart.map(id => fetchProductById(id)));
+    renderCartProducts(products);
+    updateTotalPrice(products);
+
+    setupCartPageEventListeners();
   } catch (error) {
-    document.querySelector('.not-found').classList.add('not-found--visible');
-    document.querySelector('.cart-summary').style.display = 'none';
+    console.error('Error initializing cart page:', error);
+    showErrorToast('Не вдалося завантажити товари в кошику');
+  } finally {
+    hideLoader();
   }
-});
+}
+
+function renderCartProducts(products) {
+  refs.cartProducts.innerHTML = renderProducts(products);
+}
+
+function updateCartSummary(cart) {
+  refs.cartSummaryItems.textContent = cart.length;
+}
+
+function updateTotalPrice(products) {
+  const total = products.reduce((sum, product) => sum + product.price, 0);
+  refs.cartSummaryTotal.textContent = `$${total.toFixed(2)}`;
+}
+
+function showEmptyCart() {
+  refs.notFound.classList.add('not-found--visible');
+  refs.cartSummaryItems.textContent = '0';
+  refs.cartSummaryTotal.textContent = '$0';
+}
+
+function setupCartPageEventListeners() {
+  // Відкриття модального вікна
+  refs.cartProducts.addEventListener('click', e => {
+    const productItem = e.target.closest('.products__item');
+    if (productItem) {
+      const productId = productItem.dataset.id;
+      openModal(productId);
+    }
+  });
+
+  // Кнопка покупки
+  refs.cartSummaryBtn.addEventListener('click', () => {
+    showSuccessToast('Дякуємо за покупку! Ваше замовлення оформлено.');
+    setCart([]);
+    updateCartCount();
+    showEmptyCart();
+  });
+}

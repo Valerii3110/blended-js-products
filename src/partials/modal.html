@@ -1,16 +1,23 @@
 <div class="modal">
   <div class="modal__content">
     <button class="modal__close-btn" type="button"></button>
-    <div class="modal-product"></div>
+    <div class="modal-product">
+      <!-- Тут буде вміст продукту без кнопок -->
+    </div>
+    <!-- Кнопки лишаються тільки тут -->
     <div class="modal-product__actions">
       <button
-        class="modal-product__btn modal-product__btn--wishlist"
+        class="modal-product__btn modal-product__btn--wishlist ${wishlist.includes(product.id) ? 'active' : ''}"
         type="button"
       >
-        Add to Wishlist
+        ${wishlist.includes(product.id) ? 'Remove from Wishlist' : 'Add to
+        Wishlist'}
       </button>
-      <button class="modal-product__btn modal-product__btn--cart" type="button">
-        Add to Cart
+      <button
+        class="modal-product__btn modal-product__btn--cart ${cart.includes(product.id) ? 'active' : ''}"
+        type="button"
+      >
+        ${cart.includes(product.id) ? 'Remove from Cart' : 'Add to Cart'}
       </button>
     </div>
   </div>

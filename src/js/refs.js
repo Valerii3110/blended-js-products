@@ -1,17 +1,34 @@
-import { SELECTORS } from './constants.js';
-
 export const refs = {
-  productsList: document.querySelector(SELECTORS.PRODUCTS_LIST),
-  categoriesList: document.querySelector(SELECTORS.CATEGORIES_LIST),
-  modal: document.querySelector(SELECTORS.MODAL),
-  modalProduct: document.querySelector(SELECTORS.MODAL_PRODUCT),
-  notFound: document.querySelector(SELECTORS.NOT_FOUND),
-  loadMoreBtn: document.querySelector(SELECTORS.LOAD_MORE),
-  searchForm: document.querySelector(SELECTORS.SEARCH_FORM),
-  searchInput: document.querySelector(SELECTORS.SEARCH_INPUT),
-  searchClearBtn: document.querySelector(SELECTORS.SEARCH_CLEAR),
-  cartCount: document.querySelector(SELECTORS.CART_COUNT),
-  wishlistCount: document.querySelector(SELECTORS.WISHLIST_COUNT),
-  themeToggle: document.querySelector(SELECTORS.THEME_TOGGLE),
+  // Common elements
+  loader: document.querySelector('.loader'),
+  scrollTopBtn: document.querySelector('.scroll-top-btn'),
+  themeToggleBtn: document.querySelector('.theme-toggle-btn'),
+
+  // For home page
+  categories: document.querySelector('.categories'),
+  products: document.querySelector('.products'),
+  loadMoreBtn: document.querySelector('.load-more-btn'),
+  notFound: document.querySelector('.not-found'),
+
+  // For modal
+  modal: document.querySelector('.modal'),
+  modalProduct: document.querySelector('.modal-product'),
+  modalCloseBtn: document.querySelector('.modal__close-btn'),
+
+  // For header
+  searchForm: document.querySelector('.search-form'),
+  searchFormInput: document.querySelector('.search-form__input'),
+  searchFormClearBtn: document.querySelector('.search-form__btn-clear'),
+  searchFormBtn: document.querySelector('.search-form__btn'),
+  cartCount: document.querySelector('[data-cart-count]'),
+  wishlistCount: document.querySelector('[data-wishlist-count]'),
+
+  // For cart page
+  cartProducts: document.querySelector('.products'),
+  cartSummaryItems: document.querySelector('[data-count]'),
+  cartSummaryTotal: document.querySelector('[data-price]'),
+  cartSummaryBtn: document.querySelector('.cart-summary__btn'),
+
+  // For wishlist page
+  wishlistProducts: document.querySelector('.products'),
 };
-console.log('Refs:', refs); // Додати після оголошення refs

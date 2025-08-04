@@ -1,79 +1,236 @@
 import { refs } from './js/refs.js';
-import { fetchProducts, fetchCategories } from './js/products-api.js';
-import { renderProducts, renderCategories } from './js/render-functions.js';
 import {
-  handleCategoryClick,
-  handleProductClick,
-  handleLoadMore,
-  handleSearch,
-  handleSearchClear,
-  updateCartCount,
-  updateWishlistCount,
-  handleThemeToggle,
-  handleScrollUp,
-} from './js/handlers.js';
-import { initTheme } from './js/storage.js';
+  fetchCategories,
+  fetchProducts,
+  fetchProductsByCategory,
+  searchProducts,
+} from './js/products-api.js';
+import {
+  initPageTheme,
+  renderCategories,
+  renderProducts,
+} from './js/render-functions.js';
+import { openModal } from './js/modal.js';
+import iziToast from 'izitoast';
+import 'izitoast/dist/css/iziToast.min.css';
 
-const initApp = async () => {
-  // Ініціалізація теми
-  initTheme();
+let currentPage = 1;
+let currentCategory = 'All';
+let currentSearchQuery = '';
+const productsPerPage = 12;
 
-  // Ініціалізація лічильників
-  updateCartCount();
-  updateWishlistCount();
+// Функції для роботи з loader
+const showLoader = () => refs.loader?.classList.add('loader--visible');
+const hideLoader = () => refs.loader?.classList.remove('loader--visible');
 
-  try {
-    // Завантаження категорій
-    const categories = await fetchCategories();
-    if (refs.categoriesList) {
-      renderCategories(categories);
-    }
-
-    // Завантаження продуктів
-    const { products } = await fetchProducts();
-    if (refs.productsList) {
-      renderProducts(products);
-    }
-
-    // Додавання обробників подій з перевіркою на null
-    if (refs.categoriesList) {
-      refs.categoriesList.addEventListener('click', handleCategoryClick);
-    }
-
-    if (refs.productsList) {
-      refs.productsList.addEventListener('click', handleProductClick);
-    }
-
-    if (refs.loadMoreBtn) {
-      refs.loadMoreBtn.addEventListener('click', handleLoadMore);
-    }
-
-    if (refs.searchForm) {
-      refs.searchForm.addEventListener('submit', handleSearch);
-    }
-
-    if (refs.searchClearBtn) {
-      refs.searchClearBtn.addEventListener('click', handleSearchClear);
-    }
-
-    if (refs.themeToggle) {
-      refs.themeToggle.addEventListener('click', handleThemeToggle);
-    }
-
-    // Ініціалізація кнопки scrollUp
-    const scrollUpBtn = document.createElement('button');
-    scrollUpBtn.className = 'scroll-up';
-    scrollUpBtn.innerHTML = '↑';
-    scrollUpBtn.addEventListener('click', handleScrollUp);
-    document.body.appendChild(scrollUpBtn);
-
-    window.addEventListener('scroll', () => {
-      scrollUpBtn.style.display = window.scrollY > 300 ? 'block' : 'none';
-    });
-  } catch (error) {
-    console.error('Помилка ініціалізації додатка:', error);
-  }
+// Функції для сповіщень
+const showErrorToast = message => {
+  iziToast.error({
+    title: 'Error',
+    message: message,
+    position: 'topRight',
+  });
 };
 
-// Запускаємо додаток після повного завантаження DOM
-document.addEventListener('DOMContentLoaded', initApp);
+const showNotFound = () => {
+  refs.products.innerHTML = '';
+  refs.notFound.classList.add('not-found--visible');
+  refs.loadMoreBtn.classList.add('is-hidden');
+};
+
+async function loadProducts() {
+  try {
+    showLoader();
+    refs.products.innerHTML = '';
+    refs.notFound.classList.remove('not-found--visible');
+
+    let result;
+    if (currentSearchQuery) {
+      result = await searchProducts(currentSearchQuery);
+    } else if (currentCategory === 'All') {
+      result = await fetchProducts(
+        productsPerPage,
+        (currentPage - 1) * productsPerPage
+      );
+    } else {
+      result = await fetchProductsByCategory(
+        currentCategory,
+        productsPerPage,
+        (currentPage - 1) * productsPerPage
+      );
+    }
+
+    if (result.products.length === 0) {
+      showNotFound();
+    } else {
+      refs.products.innerHTML = renderProducts(result.products);
+      refs.loadMoreBtn.classList.toggle(
+        'is-hidden',
+        result.products.length < productsPerPage
+      );
+    }
+  } catch (error) {
+    console.error('Error loading products:', error);
+    showErrorToast('Failed to load products');
+    showNotFound();
+  } finally {
+    hideLoader();
+  }
+}
+
+async function loadMoreProducts() {
+  try {
+    showLoader();
+    let result;
+    if (currentSearchQuery) {
+      result = await searchProducts(currentSearchQuery);
+    } else if (currentCategory === 'All') {
+      result = await fetchProducts(
+        productsPerPage,
+        (currentPage - 1) * productsPerPage
+      );
+    } else {
+      result = await fetchProductsByCategory(
+        currentCategory,
+        productsPerPage,
+        (currentPage - 1) * productsPerPage
+      );
+    }
+
+    const newProducts = result.products;
+    if (newProducts.length > 0) {
+      refs.products.insertAdjacentHTML(
+        'beforeend',
+        renderProducts(newProducts)
+      );
+      if (newProducts.length < productsPerPage) {
+        refs.loadMoreBtn.classList.add('is-hidden');
+      }
+    } else {
+      refs.loadMoreBtn.classList.add('is-hidden');
+      showErrorToast('No more products to load');
+    }
+  } catch (error) {
+    console.error('Error loading more products:', error);
+    showErrorToast('Failed to load more products');
+  } finally {
+    hideLoader();
+  }
+}
+
+function setupEventListeners() {
+  // Category click
+  refs.categories.addEventListener('click', e => {
+    if (e.target.classList.contains('categories__btn')) {
+      const category = e.target.textContent.trim();
+      if (category !== currentCategory) {
+        currentCategory = category;
+        currentPage = 1;
+        currentSearchQuery = '';
+        refs.searchFormInput.value = '';
+        loadProducts();
+
+        // Update active category
+        document.querySelectorAll('.categories__btn').forEach(btn => {
+          btn.classList.remove('categories__btn--active');
+        });
+        e.target.classList.add('categories__btn--active');
+      }
+    }
+  });
+
+  // Product click
+  refs.products.addEventListener('click', e => {
+    const productItem = e.target.closest('.products__item');
+    if (productItem) {
+      const productId = productItem.dataset.id;
+      openModal(productId);
+    }
+  });
+
+  // Search form submit
+  refs.searchForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const searchValue = refs.searchFormInput.value.trim();
+    if (searchValue) {
+      currentSearchQuery = searchValue;
+      currentPage = 1;
+      loadProducts();
+    }
+  });
+
+  // Clear search button
+  refs.searchFormClearBtn.addEventListener('click', () => {
+    refs.searchFormInput.value = '';
+    currentSearchQuery = '';
+    currentPage = 1;
+    loadProducts();
+  });
+
+  // Load more button
+  refs.loadMoreBtn.addEventListener('click', async () => {
+    currentPage += 1;
+    try {
+      showLoader();
+      let result;
+
+      if (currentSearchQuery) {
+        result = await searchProducts(currentSearchQuery);
+      } else if (currentCategory === 'All') {
+        result = await fetchProducts(
+          productsPerPage,
+          (currentPage - 1) * productsPerPage
+        );
+      } else {
+        result = await fetchProductsByCategory(
+          currentCategory,
+          productsPerPage,
+          (currentPage - 1) * productsPerPage
+        );
+      }
+
+      const newProducts = result.products;
+      if (newProducts.length > 0) {
+        refs.products.insertAdjacentHTML(
+          'beforeend',
+          renderProducts(newProducts)
+        );
+        if (newProducts.length < productsPerPage) {
+          refs.loadMoreBtn.classList.add('is-hidden');
+        }
+      } else {
+        refs.loadMoreBtn.classList.add('is-hidden');
+        showErrorToast('No more products to load');
+      }
+    } catch (error) {
+      console.error('Error loading more products:', error);
+      showErrorToast('Failed to load more products');
+    } finally {
+      hideLoader();
+    }
+  });
+
+  // Scroll to top button
+  refs.scrollTopBtn.addEventListener('click', () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    });
+  });
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    initPageTheme();
+    showLoader();
+    const categories = await fetchCategories();
+    refs.categories.innerHTML = renderCategories(['All', ...categories]);
+    await loadProducts();
+    setupEventListeners(); // Додаємо виклик функції
+  } catch (error) {
+    console.error('Initialization error:', error);
+    showErrorToast('Failed to initialize');
+  } finally {
+    hideLoader();
+  }
+});

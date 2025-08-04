@@ -31,3 +31,20 @@ body {
   color: var(--primary-text-color);
   transition: background-color 0.3s, color 0.3s;
 }
+
+.theme-toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.5rem;
+  padding: 0.5rem;
+}
+
+/* Додаткові стилі для інших елементів */
+.header {
+  background-color: var(--header-bg);
+}
+
+.product-card {
+  background-color: var(--card-bg);
+}

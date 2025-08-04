@@ -1,64 +1,112 @@
 import { refs } from './refs.js';
+import { fetchProductById } from './products-api.js';
 import { renderModalProduct } from './render-functions.js';
+import { getCart, setCart, getWishlist, setWishlist } from './storage.js';
 import {
-  addToCart,
-  removeFromCart,
-  addToWishlist,
-  removeFromWishlist,
-} from './storage';
-import { showSuccess } from './helpers.js';
+  showErrorToast,
+  showSuccessToast,
+  updateCartCount,
+  updateWishlistCount,
+} from './helpers.js';
 
-const handleEscape = e => {
-  if (e.code === 'Escape') closeModal();
-};
+// Основні функції модального вікна
+export function openModal(productId) {
+  fetchProductById(productId)
+    .then(product => {
+      refs.modalProduct.innerHTML = renderModalProduct(product);
+      refs.modal.classList.add('modal--is-open');
+      setupModalHandlers(productId);
+      updateButtonStates(productId); // Оновлюємо стан кнопок
+    })
+    .catch(error => {
+      console.error('Error opening modal:', error);
+      showErrorToast('Failed to load product details');
+    });
+}
 
-const handleBackdropClick = e => {
-  if (e.target === refs.modal) closeModal();
-};
-
-export const openModal = product => {
-  renderModalProduct(product);
-  refs.modal.classList.add('modal--is-open');
-  document.body.style.overflow = 'hidden';
-
-  document.addEventListener('keydown', handleEscape);
-  refs.modal.addEventListener('click', handleBackdropClick);
-
-  // Додаємо обробники для кнопок у модальному вікні
-  const wishlistBtn = refs.modal.querySelector('.modal-product__wishlist-btn');
-  const cartBtn = refs.modal.querySelector('.modal-product__cart-btn');
-
-  wishlistBtn.addEventListener('click', () => {
-    const productId = wishlistBtn.dataset.id;
-    if (wishlistBtn.textContent.includes('Remove')) {
-      removeFromWishlist(productId);
-      wishlistBtn.textContent = 'Add to Wishlist';
-      showSuccess('Removed from wishlist');
-    } else {
-      addToWishlist(productId);
-      wishlistBtn.textContent = 'Remove from Wishlist';
-      showSuccess('Added to wishlist');
-    }
-  });
-
-  cartBtn.addEventListener('click', () => {
-    const productId = cartBtn.dataset.id;
-    if (cartBtn.textContent.includes('Remove')) {
-      removeFromCart(productId);
-      cartBtn.textContent = 'Add to Cart';
-      showSuccess('Removed from cart');
-    } else {
-      addToCart(productId);
-      cartBtn.textContent = 'Remove from Cart';
-      showSuccess('Added to cart');
-    }
-  });
-};
-
-export const closeModal = () => {
+export function closeModal() {
   refs.modal.classList.remove('modal--is-open');
-  document.body.style.overflow = '';
+}
 
-  document.removeEventListener('keydown', handleEscape);
-  refs.modal.removeEventListener('click', handleBackdropClick);
-};
+// Допоміжні функції
+function setupModalHandlers(productId) {
+  const cartBtn = refs.modal.querySelector('.modal-product__btn--cart');
+  const wishlistBtn = refs.modal.querySelector('.modal-product__btn--wishlist');
+
+  if (cartBtn) {
+    cartBtn.addEventListener('click', () => handleCartAction(productId));
+  }
+
+  if (wishlistBtn) {
+    wishlistBtn.addEventListener('click', () =>
+      handleWishlistAction(productId)
+    );
+  }
+}
+
+function updateButtonStates(productId) {
+  const cartBtn = refs.modal.querySelector('.modal-product__btn--cart');
+  const wishlistBtn = refs.modal.querySelector('.modal-product__btn--wishlist');
+
+  if (cartBtn) {
+    const cart = getCart();
+    cartBtn.textContent = cart.includes(productId)
+      ? 'Remove from Cart'
+      : 'Add to Cart';
+    cartBtn.classList.toggle('active', cart.includes(productId));
+  }
+
+  if (wishlistBtn) {
+    const wishlist = getWishlist();
+    wishlistBtn.textContent = wishlist.includes(productId)
+      ? 'Remove from Wishlist'
+      : 'Add to Wishlist';
+    wishlistBtn.classList.toggle('active', wishlist.includes(productId));
+  }
+}
+
+function handleCartAction(productId) {
+  let cart = getCart();
+  const isInCart = cart.includes(productId);
+
+  if (isInCart) {
+    cart = cart.filter(id => id !== productId);
+    showSuccessToast('Product removed from cart');
+  } else {
+    cart.push(productId);
+    showSuccessToast('Product added to cart');
+  }
+
+  setCart(cart);
+  updateButtonStates(productId);
+  updateCartCount();
+}
+
+function handleWishlistAction(productId) {
+  let wishlist = getWishlist();
+  const isInWishlist = wishlist.includes(productId);
+
+  if (isInWishlist) {
+    wishlist = wishlist.filter(id => id !== productId);
+    showSuccessToast('Product removed from wishlist');
+  } else {
+    wishlist.push(productId);
+    showSuccessToast('Product added to wishlist');
+  }
+
+  setWishlist(wishlist);
+  updateButtonStates(productId);
+  updateWishlistCount();
+}
+
+// Обробник закриття модального вікна
+document.addEventListener('DOMContentLoaded', () => {
+  refs.modal.addEventListener('click', e => {
+    if (
+      e.target === refs.modal ||
+      e.target.classList.contains('modal__close-btn')
+    ) {
+      closeModal();
+    }
+  });
+});

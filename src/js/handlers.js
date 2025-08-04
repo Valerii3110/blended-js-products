@@ -1,136 +1,132 @@
-import { refs } from './refs.js';
+import { closeModal } from './modal.js';
+import { getCart, setCart, getWishlist, setWishlist } from './storage.js';
 import {
-  fetchProducts,
-  fetchProductsByCategory,
-  searchProducts,
-  fetchProductById,
-} from './products-api.js';
-import { renderProducts, appendProducts } from './render-functions.js';
-import { openModal } from './modal.js';
-import { debounce } from './helpers.js';
-import { getFromStorage } from './storage.js';
-import { STORAGE_KEYS, SELECTORS } from './constants.js';
+  showSuccessToast,
+  updateCartCount,
+  updateWishlistCount,
+} from './helpers.js';
 
-let currentPage = 1;
-let currentCategory = 'All';
-let currentSearchQuery = '';
-let isLoading = false;
-
-export const updateCartCount = () => {
-  const cart = getFromStorage(STORAGE_KEYS.CART);
-  const cartCountElement = document.querySelector(SELECTORS.CART_COUNT);
-
-  if (cartCountElement) {
-    cartCountElement.textContent = cart.length;
-    // Додаємо клас для анімації при зміні
-    cartCountElement.classList.add('nav__count--updated');
-    setTimeout(() => {
-      cartCountElement.classList.remove('nav__count--updated');
-    }, 300);
-  }
-};
-
-export const updateWishlistCount = () => {
-  const wishlist = getFromStorage(STORAGE_KEYS.WISHLIST);
-  const wishlistCountElement = document.querySelector(SELECTORS.WISHLIST_COUNT);
-
-  if (wishlistCountElement) {
-    wishlistCountElement.textContent = wishlist.length;
-    // Додаємо клас для анімації при зміні
-    wishlistCountElement.classList.add('nav__count--updated');
-    setTimeout(() => {
-      wishlistCountElement.classList.remove('nav__count--updated');
-    }, 300);
-  }
-};
-
-export const handleCategoryClick = async e => {
-  if (!e.target.classList.contains('categories__btn')) return;
-
-  const category = e.target.dataset.category;
-  currentCategory = category;
-  currentPage = 1;
-
-  // Оновлення активної категорії
-  document.querySelectorAll('.categories__btn').forEach(btn => {
-    btn.classList.remove('categories__btn--active');
+export function setupModalHandlers() {
+  refs.modal.addEventListener('click', e => {
+    if (
+      e.target === refs.modal ||
+      e.target.classList.contains('modal__close-btn')
+    ) {
+      closeModal();
+    }
   });
-  e.target.classList.add('categories__btn--active');
+}
+export function setupCartHandlers() {
+  refs.modal.addEventListener('click', e => {
+    if (e.target.classList.contains('modal-product__btn--cart')) {
+      const productId = parseInt(
+        refs.modalProduct.querySelector('.products__item').dataset.id
+      );
+      const cart = getCart();
 
-  // Завантаження продуктів
-  const { products } = await fetchProductsByCategory(category, currentPage);
-  renderProducts(products);
-};
+      if (cart.includes(productId)) {
+        // Видалити з кошика
+        const updatedCart = cart.filter(id => id !== productId);
+        setCart(updatedCart);
+        e.target.textContent = 'Add to Cart';
+        showSuccessToast('Product removed from cart');
+      } else {
+        // Додати до кошика
+        setCart([...cart, productId]);
+        e.target.textContent = 'Remove from Cart';
+        showSuccessToast('Product added to cart');
+      }
 
-export const handleProductClick = async e => {
-  const productItem = e.target.closest('.products__item');
-  if (!productItem) return;
+      updateCartCount();
+    }
+  });
+}
 
-  const productId = productItem.dataset.id;
-  const product = await fetchProductById(productId);
-  if (product) openModal(product);
-};
+export function setupWishlistHandlers() {
+  refs.modal.addEventListener('click', e => {
+    if (e.target.classList.contains('modal-product__btn--wishlist')) {
+      const productId = parseInt(
+        refs.modalProduct.querySelector('.products__item').dataset.id
+      );
+      const wishlist = getWishlist();
 
-export const handleLoadMore = async () => {
-  if (isLoading) return;
-  isLoading = true;
+      if (wishlist.includes(productId)) {
+        // Видалити з wishlist
+        const updatedWishlist = wishlist.filter(id => id !== productId);
+        setWishlist(updatedWishlist);
+        e.target.textContent = 'Add to Wishlist';
+        showSuccessToast('Product removed from wishlist');
+      } else {
+        // Додати до wishlist
+        setWishlist([...wishlist, productId]);
+        e.target.textContent = 'Remove from Wishlist';
+        showSuccessToast('Product added to wishlist');
+      }
 
-  currentPage += 1;
-  let products = [];
+      updateWishlistCount();
+    }
+  });
+}
 
-  if (currentSearchQuery) {
-    const data = await searchProducts(currentSearchQuery, currentPage);
-    products = data.products;
-  } else {
-    const data = await fetchProductsByCategory(currentCategory, currentPage);
-    products = data.products;
+export function setupScrollTopHandler() {
+  window.addEventListener('scroll', () => {
+    if (window.pageYOffset > 300) {
+      refs.scrollTopBtn.classList.add('scroll-top-btn--visible');
+    } else {
+      refs.scrollTopBtn.classList.remove('scroll-top-btn--visible');
+    }
+  });
+
+  refs.scrollTopBtn.addEventListener('click', () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    });
+  });
+
+  window.addEventListener('scroll', () => {
+    if (window.pageYOffset > 300) {
+      refs.scrollTopBtn.classList.add('scroll-top-btn--visible');
+    } else {
+      refs.scrollTopBtn.classList.remove('scroll-top-btn--visible');
+    }
+  });
+}
+
+export function setupSearchHandlers() {
+  // Обробник очищення пошуку
+  if (refs.searchFormClearBtn) {
+    refs.searchFormClearBtn.addEventListener('click', () => {
+      refs.searchFormInput.value = '';
+      refs.searchFormClearBtn.classList.add('is-hidden');
+      // Додаткові дії при очищенні пошуку
+      currentSearchQuery = '';
+      currentPage = 1;
+      loadProducts();
+    });
   }
 
-  if (products.length > 0) {
-    appendProducts(products);
-  } else {
-    refs.loadMoreBtn.style.display = 'none';
+  // Обробник введення тексту
+  if (refs.searchFormInput) {
+    refs.searchFormInput.addEventListener('input', e => {
+      if (e.target.value.trim()) {
+        refs.searchFormClearBtn.classList.remove('is-hidden');
+      } else {
+        refs.searchFormClearBtn.classList.add('is-hidden');
+      }
+    });
   }
 
-  isLoading = false;
-};
-
-export const handleSearch = debounce(async e => {
-  e.preventDefault();
-  const query = refs.searchInput.value.trim();
-  if (!query) return;
-
-  currentSearchQuery = query;
-  currentPage = 1;
-
-  const { products } = await searchProducts(query, currentPage);
-  renderProducts(products);
-  refs.loadMoreBtn.style.display =
-    products.length >= PAGINATION.LIMIT ? 'block' : 'none';
-}, 500);
-
-export const handleSearchClear = () => {
-  refs.searchInput.value = '';
-  currentSearchQuery = '';
-  currentPage = 1;
-
-  fetchProducts(currentPage).then(({ products }) => {
-    renderProducts(products);
-    refs.loadMoreBtn.style.display =
-      products.length >= PAGINATION.LIMIT ? 'block' : 'none';
-  });
-};
-
-export const handleScrollUp = () => {
-  window.scrollTo({
-    top: 0,
-    behavior: 'smooth',
-  });
-};
-
-export const handleThemeToggle = () => {
-  const currentTheme = localStorage.getItem('theme') || 'light';
-  const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-  document.documentElement.setAttribute('data-theme', newTheme);
-  localStorage.setItem('theme', newTheme);
-};
+  // Обробник сабміту форми
+  if (refs.searchForm) {
+    refs.searchForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const searchValue = refs.searchFormInput.value.trim();
+      if (searchValue) {
+        currentSearchQuery = searchValue;
+        currentPage = 1;
+        loadProducts();
+      }
+    });
+  }
+}
