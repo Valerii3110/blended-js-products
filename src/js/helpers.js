@@ -62,6 +62,46 @@ export function showErrorToast(message) {
 }
 
 export function updateCartCount() {
+  const removeFromCartPage = productId => {
+    // Видаляємо елемент з DOM
+    const productElement = document.querySelector(
+      `.cart-page ul.products li[data-id="${productId}"]`
+    );
+    if (productElement) {
+      productElement.remove();
+    }
+
+    // Оновлюємо підсумки
+    updateCartTotals();
+  };
+
+  // Функція для оновлення підсумків кошика
+  const updateCartTotals = async () => {
+    const cart = getCart();
+    const productsList = document.querySelector('.cart-page ul.products');
+
+    if (!productsList) return;
+
+    try {
+      const requests = cart.map(id =>
+        fetch(`https://api.example.com/products/${id}`).then(res => res.json())
+      );
+      const products = await Promise.all(requests);
+
+      const totalItems = cart.length;
+      const totalPrice = products.reduce(
+        (sum, product) => sum + product.price,
+        0
+      );
+
+      document.querySelector('.sidebar .items').textContent = totalItems;
+      document.querySelector(
+        '.sidebar .total'
+      ).textContent = `$${totalPrice.toFixed(2)}`;
+    } catch (error) {
+      console.error('Error updating cart totals:', error);
+    }
+  };
   try {
     const cart = getCart();
     const cartCountElements = document.querySelectorAll('[data-cart-count]');
@@ -86,5 +126,3 @@ export function updateWishlistCount() {
     console.error('Error updating wishlist count:', error);
   }
 }
-console.log('Current cart:', getCart());
-console.log('Current wishlist:', getWishlist());

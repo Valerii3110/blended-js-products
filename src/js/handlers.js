@@ -1,3 +1,4 @@
+import { refs } from '../js/refs.js';
 import { closeModal } from './modal.js';
 import { getCart, setCart, getWishlist, setWishlist } from './storage.js';
 import {
@@ -5,6 +6,7 @@ import {
   updateCartCount,
   updateWishlistCount,
 } from './helpers.js';
+import { renderProducts } from './render-functions.js';
 
 export function setupModalHandlers() {
   refs.modal.addEventListener('click', e => {
@@ -128,5 +130,70 @@ export function setupSearchHandlers() {
         loadProducts();
       }
     });
+  }
+}
+
+export function updateButtonStates(productId) {
+  const cartBtn = refs.modal.querySelector('.modal-product__btn--cart');
+  const wishlistBtn = refs.modal.querySelector('.modal-product__btn--wishlist');
+
+  if (cartBtn) {
+    const cart = getCart();
+    cartBtn.textContent = cart.includes(productId)
+      ? 'Remove from Cart'
+      : 'Add to Cart';
+    cartBtn.classList.toggle('active', cart.includes(productId));
+  }
+
+  if (wishlistBtn) {
+    const wishlist = getWishlist();
+    wishlistBtn.textContent = wishlist.includes(productId)
+      ? 'Remove from Wishlist'
+      : 'Add to Wishlist';
+    wishlistBtn.classList.toggle('active', wishlist.includes(productId));
+  }
+}
+
+export async function handleCartAction(productId) {
+  let cart = getCart();
+  const isInCart = cart.includes(productId);
+
+  if (isInCart) {
+    cart = cart.filter(id => id !== productId);
+    showSuccessToast('Product removed from cart');
+  } else {
+    cart.push(productId);
+    showSuccessToast('Product added to cart');
+  }
+  setCart(cart);
+  updateButtonStates(productId);
+  updateCartCount();
+
+  if (window.location.href.endsWith('cart.html')) {
+    const products = await Promise.all(cart.map(id => fetchProductById(id)));
+    refs.cartProducts.innerHTML = renderProducts(products);
+  }
+}
+
+export async function handleWishlistAction(productId) {
+  let wishlist = getWishlist();
+  const isInWishlist = wishlist.includes(productId);
+
+  if (isInWishlist) {
+    wishlist = wishlist.filter(id => id !== productId);
+    showSuccessToast('Product removed from wishlist');
+  } else {
+    wishlist.push(productId);
+    showSuccessToast('Product added to wishlist');
+  }
+
+  setWishlist(wishlist);
+  updateButtonStates(productId);
+  updateWishlistCount();
+  if (window.location.href.endsWith('wishlist.html')) {
+    const products = await Promise.all(
+      wishlist.map(id => fetchProductById(id))
+    );
+    refs.cartProducts.innerHTML = renderProducts(products);
   }
 }

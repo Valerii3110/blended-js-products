@@ -12,7 +12,10 @@ import {
 } from './js/render-functions.js';
 import { openModal } from './js/modal.js';
 import iziToast from 'izitoast';
+import { addToCart, removeFromCart } from './cart.js';
+
 import 'izitoast/dist/css/iziToast.min.css';
+import { updateCartCount, updateWishlistCount } from './js/helpers.js';
 
 let currentPage = 1;
 let currentCategory = 'All';
@@ -223,6 +226,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     initPageTheme();
     showLoader();
+    updateCartCount();
+    updateWishlistCount();
     const categories = await fetchCategories();
     refs.categories.innerHTML = renderCategories(['All', ...categories]);
     await loadProducts();

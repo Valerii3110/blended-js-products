@@ -2,8 +2,14 @@ import { refs } from './js/refs.js';
 import { fetchProductById } from './js/products-api.js';
 import { initPageTheme, renderProducts } from './js/render-functions.js';
 import { getWishlist } from './js/storage.js';
-import { showLoader, hideLoader, updateWishlistCount } from './js/helpers.js';
+import {
+  showLoader,
+  hideLoader,
+  updateWishlistCount,
+  updateCartCount,
+} from './js/helpers.js';
 import { openModal } from './js/modal.js';
+import { addToCart, removeFromCart } from './cart.js';
 
 document.addEventListener('DOMContentLoaded', initWishlistPage);
 
@@ -11,6 +17,7 @@ async function initWishlistPage() {
   try {
     initPageTheme();
     showLoader();
+    updateCartCount();
 
     const wishlist = getWishlist();
     updateWishlistCount();
@@ -19,7 +26,7 @@ async function initWishlistPage() {
       showEmptyWishlist();
       return;
     }
-
+    console.log(wishlist);
     const products = await Promise.all(
       wishlist.map(id => fetchProductById(id))
     );
@@ -43,6 +50,7 @@ function showEmptyWishlist() {
 
 function setupWishlistPageEventListeners() {
   // Відкриття модального вікна
+
   refs.wishlistProducts.addEventListener('click', e => {
     const productItem = e.target.closest('.products__item');
     if (productItem) {
